@@ -63,8 +63,6 @@ if __name__ == '__main__':
     for i in range(epochs):
         print(f'start epoch {i} ----------------------')
         loss = train_loop(train_dataloader, model, loss_func, optimizer, device)
-
-        loss = 0
         losses.append(loss)
 
     save_result(model, losses)
