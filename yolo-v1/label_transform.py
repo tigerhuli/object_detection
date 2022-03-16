@@ -20,12 +20,12 @@ def extract_label_from_xml():
         info = {}
         info['size'] = (width, height)
         objs = []
-        name_list = data.xpath('/annotation/object/name/text()')
-        xmin_list = data.xpath('/annotation/object/bndbox/xmin/text()')
-        ymin_list = data.xpath('/annotation/object/bndbox/ymin/text()')
-        xmax_list = data.xpath('/annotation/object/bndbox/xmax/text()')
-        ymax_list = data.xpath('/annotation/object/bndbox/ymax/text()')
-        for name, xmin, ymin, xmax, ymax in zip(name_list, xmin_list, ymin_list, xmax_list, ymax_list):
+        for node in data.xpath('/annotation/object'):
+            name = node.xpath('./name/text()')[0]
+            xmin = node.xpath('./bndbox/xmin/text()')[0]
+            ymin = node.xpath('./bndbox/ymin/text()')[0]
+            xmax = node.xpath('./bndbox/xmax/text()')[0]
+            ymax = node.xpath('./bndbox/ymax/text()')[0]
             obj = (name, xmin, ymin, xmax, ymax)
             objs.append(obj)
             obj_count += 1
