@@ -8,6 +8,7 @@ from torchvision import transforms
 import cv2
 import pandas as pd
 import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
 
@@ -86,6 +87,6 @@ if __name__ == '__main__':
 
         cv2.imshow(f'{obj_name}_{count}', image)
         count += 1
-        if count > 10:
+        if count > 5:
             break
     cv2.waitKey(0)
