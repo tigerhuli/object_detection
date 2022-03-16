@@ -56,7 +56,7 @@ class Net(nn.Module):
         # 1024*7*7 -> 1024*7*7
         conv_layers.append(nn.Conv2d(1024, 1024, 3, 1, padding=1))
         conv_layers.append(leaky_relu)
-        conv_layers.append(nn.Conv2d(1024, 1024, 3, 1, padding=1))
+        conv_layers.append(nn.Conv2d(1024, 512, 3, 1, padding=1))
         conv_layers.append(leaky_relu)
 
         # # 1024*7*7 -> 1*4096
@@ -69,7 +69,8 @@ class Net(nn.Module):
         # conv_layers.append(leaky_relu)
 
         # 30*7*7
-        conv_layers.append(nn.Conv2d(1024, 30, 1, 1))
+        conv_layers.append(nn.Flatten())
+        conv_layers.append(nn.Linear(512*7*7, 1470))
 
         self.conv_layers = nn.Sequential(*conv_layers)
 
