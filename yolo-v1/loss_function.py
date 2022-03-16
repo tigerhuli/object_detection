@@ -5,6 +5,8 @@ import numpy as np
 import os
 import sys
 
+EPSILON = 1e-6
+
 
 class Loss(nn.Module):
     def __init__(self, S, B, lambda_coord, lambda_noobj, device) -> None:
@@ -28,8 +30,8 @@ class Loss(nn.Module):
             wh_mask[:, i*5+2:i*5+4] = True
         wh_predictions = predictions[wh_mask].view(-1, 2*self.B)
         wh_targets = predictions[wh_mask].view(-1, 2*self.B)
-        wh_predictions = torch.abs(wh_predictions)
-        wh_targets = torch.abs(wh_targets)
+        wh_predictions = torch.abs(wh_predictions)+EPSILON
+        wh_targets = torch.abs(wh_targets)+EPSILON
         wh_loss = F.mse_loss(torch.sqrt(wh_predictions), torch.sqrt(wh_targets), reduction='sum')
 
         return xy_loss+wh_loss
@@ -82,7 +84,7 @@ class Loss(nn.Module):
 
     def choose_responsible_box(self, predictions, targets):
         for i, prediction, target in zip(range(targets.shape[0]), predictions, targets):
-            ious = torch.zeros(self.B)
+            ious = torch.zeros(self.B).to(self.device)
             for j in range(self.B):
                 iou = self.calculate_iou(prediction[j*5:j*5+4], target[j*5:j*5+4])
                 ious[j] = iou
@@ -90,7 +92,6 @@ class Loss(nn.Module):
             for j in range(self.B):
                 if j == max_iou_index:
                     continue
-
                 targets[i, j*5:j*5+5] = 0
 
         return targets
@@ -131,7 +132,7 @@ class Loss(nn.Module):
 
 
 if __name__ == '__main__':
-    predictions = torch.zeros((1, 7, 7, 30))
+    predictions = torch.randn((1, 7, 7, 30))
     data = np.load('./data/targets/2007_000027.jpg.npy')
     targets = torch.from_numpy(data).unsqueeze(0)
 
