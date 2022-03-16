@@ -4,8 +4,7 @@ import pandas as pd
 import numpy as np
 
 
-def extract_label_from_xml():
-    file_dir = 'data\VOCdevkit\VOC2012\Annotations'
+def extract_label_from_xml(file_dir):
     root, _, files = next(os.walk(file_dir))
     image2info = {}
     obj_count = 0
@@ -38,7 +37,7 @@ def extract_label_from_xml():
     return image2info, classes_set
 
 
-def generate_classes_label_map(classes):
+def generate_classes_label_map(classes, save=False):
     classes = list(classes)
     classes.sort()
     labels = range(len(classes))
@@ -47,8 +46,9 @@ def generate_classes_label_map(classes):
     for classname, label in zip(classes, labels):
         classname2label[classname] = label
 
-    data = pd.DataFrame({'classes name': classes, 'label': labels})
-    data.to_csv('data/class_label_map.csv', index=False)
+    if save:
+        data = pd.DataFrame({'classes name': classes, 'label': labels})
+        data.to_csv('data/class_label_map.csv', index=False)
 
     return classname2label
 
@@ -101,6 +101,7 @@ def generate_targets(image2info, classname2label):
 
 if __name__ == '__main__':
     print('start label transform')
-    image2info, classes_set = extract_label_from_xml()
-    classname2label = generate_classes_label_map(classes_set)
+    file_dir = 'data\VOCdevkit\VOC2012\Annotations'
+    image2info, classes_set = extract_label_from_xml(file_dir)
+    classname2label = generate_classes_label_map(classes_set, True)
     generate_targets(image2info, classname2label)
