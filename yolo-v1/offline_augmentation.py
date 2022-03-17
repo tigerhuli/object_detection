@@ -29,18 +29,45 @@ def test_horizontal_flip(image, objects_info, classname2label, label2classname):
     display_effects(image_with_bboxes, new_image_with_bboxes, 'flip')
 
 
-def resize(image, objects, scale_x, scale_y):
-    new_image = cv2.resize(image, None, fx=scale_x, fy=scale_y)
-    new_objects = objects.copy()
-    new_objects[:, [0, 2]] *= scale_x
-    new_objects[:, [1, 3]] *= scale_y
+def clip_bboxes(image_shape, objects):
+    objects[:, 0] = np.maximum(0, objects[:, 0])
+    objects[:, 1] = np.maximum(0, objects[:, 1])
+    objects[:, 2] = np.minimum(image_shape[1], objects[:, 2])
+    objects[:, 3] = np.minimum(image_shape[0], objects[:, 3])
 
-    return new_image, new_objects
+    valid_mask = objects[:, 0] < objects[:, 2]
+    objects = objects[valid_mask, :]
+
+    valid_mask = objects[:, 1] < objects[:, 3]
+    objects = objects[valid_mask, :]
+    return objects
+
+
+def test_clip_bboxes():
+    objects = np.array([[-1, 2, 2, 4, 5], [1, 4, 5, 5, 10], [1, 1, 2, 2, 1]])
+    print(f'objects: {objects}')
+    objects = clip_bboxes((4, 4, 3), objects)
+    print(f'objects: {objects}')
+
+
+class Resize(object):
+    def __init__(self, scale_x, scale_y):
+        self.scale_x = scale_x
+        self.scale_y = scale_y
+
+    def __call__(self, image, objects):
+        new_image = cv2.resize(image, None, fx=self.scale_x, fy=self.scale_y)
+        new_objects = objects.copy()
+        new_objects[:, [0, 2]] *= self.scale_x
+        new_objects[:, [1, 3]] *= self.scale_y
+
+        new_objects = clip_bboxes(new_image.shape, new_objects)
+        return new_image, new_objects
 
 
 def test_resize(image, objects_info, classname2label, label2classname):
     objects = objectsinfo2list(objects_info, classname2label)
-    new_image, new_objects = resize(image, objects, 0.5, 0.5)
+    new_image, new_objects = Resize(2, 2)(image, objects)
     new_objects_info = objectlist2info(new_objects, label2classname)
 
     image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
@@ -76,9 +103,7 @@ def display_effects(image, new_image, name):
     plt.show()
 
 
-if __name__ == '__main__':
-    from tools import detection_box
-    print('start offline augmentation')
+def test_augmentation_methods():
     annotations_dir = 'data\VOCdevkit\VOC2012\Annotations'
     image2info, classes_set = extract_label_from_xml(annotations_dir)
     classname2label, label2classname = generate_classes_label_map(classes_set, False)
@@ -90,3 +115,10 @@ if __name__ == '__main__':
 
         # test_horizontal_flip(image, info['objects'], classname2label, label2classname)
         test_resize(image, info['objects'], classname2label, label2classname)
+
+
+if __name__ == '__main__':
+    from tools import detection_box
+
+    # test_clip_bboxes()
+    test_augmentation_methods()
