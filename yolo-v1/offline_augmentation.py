@@ -29,6 +29,26 @@ def test_horizontal_flip(image, objects_info, classname2label, label2classname):
     display_effects(image_with_bboxes, new_image_with_bboxes, 'flip')
 
 
+def resize(image, objects, scale_x, scale_y):
+    new_image = cv2.resize(image, None, fx=scale_x, fy=scale_y)
+    new_objects = objects.copy()
+    new_objects[:, [0, 2]] *= scale_x
+    new_objects[:, [1, 3]] *= scale_y
+
+    return new_image, new_objects
+
+
+def test_resize(image, objects_info, classname2label, label2classname):
+    objects = objectsinfo2list(objects_info, classname2label)
+    new_image, new_objects = resize(image, objects, 0.5, 0.5)
+    new_objects_info = objectlist2info(new_objects, label2classname)
+
+    image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
+    new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
+
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'resize')
+
+
 def objectsinfo2list(objects_info, classname2label):
     objects = np.ndarray((len(objects_info), 5))
     for i, ori_obj in enumerate(objects_info):
@@ -68,4 +88,5 @@ if __name__ == '__main__':
         image_path = os.path.join(images_dir, image_name)
         image = cv2.imread(image_path)
 
-        test_horizontal_flip(image, info['objects'], classname2label, label2classname)
+        # test_horizontal_flip(image, info['objects'], classname2label, label2classname)
+        test_resize(image, info['objects'], classname2label, label2classname)
