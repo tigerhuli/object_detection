@@ -92,6 +92,7 @@ class Translate(object):
     def __call__(self, image, objects):
         shift_x, shift_y = int(image.shape[1]*self.scale_x), int(image.shape[0]*self.scale_y)
         new_xmin, new_ymin, new_xmax, new_ymax = max(0, shift_x), max(0, shift_y), min(image.shape[1], image.shape[1]+shift_x), min(image.shape[0], image.shape[0]+shift_y)
+        # two image just have the opposite movement
         xmin, ymin, xmax, ymax = max(0, -shift_x), max(0, -shift_y), min(image.shape[1], image.shape[1]-shift_x), min(image.shape[0], image.shape[0]-shift_y)
         new_image = np.zeros(image.shape, dtype=np.uint8)
         new_image[new_ymin:new_ymax, new_xmin:new_xmax, :] = image[ymin:ymax, xmin:xmax, :]
@@ -104,13 +105,74 @@ class Translate(object):
 
 def test_translate(image, objects_info, classname2label, label2classname):
     objects = objectsinfo2list(objects_info, classname2label)
-    new_image, new_objects = Translate(-0.2, -0.2)(image, objects)
+    new_image, new_objects = Translate(-0.2, 0)(image, objects)
     new_objects_info = objectlist2info(new_objects, label2classname)
 
     image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
     new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
 
     display_effects(image_with_bboxes, new_image_with_bboxes, 'translate')
+
+
+def rotateobjects(m, objects):
+    w = (objects[:, 2]-objects[:, 0]).reshape(-1, 1)
+    h = (objects[:, 3]-objects[:, 1]).reshape(-1, 1)
+
+    x1, y1, x4, y4 = objects[:, 0], objects[:, 1], objects[:, 2], objects[:, 3]
+    x1 = x1.reshape(-1, 1)
+    y1 = y1.reshape(-1, 1)
+    x4 = x4.reshape(-1, 1)
+    y4 = y4.reshape(-1, 1)
+
+    x2, y2 = x1+w, y1
+    x3, y3 = x1, y1+h
+
+    cornors = np.hstack((x1, y1, x2, y2, x3, y3, x4, y4))
+    cornors = cornors.reshape(-1, 2)
+    cornors = np.hstack((cornors, np.ones((cornors.shape[0], 1), dtype=type(cornors[0][0]))))
+
+    rcornors = np.dot(m, cornors.T).T
+    rcornors = rcornors.reshape(-1, 8)
+
+    x_, y_ = rcornors[:, [0, 2, 4, 6]], rcornors[:, [1, 3, 5, 7]]
+    xmin, ymin, xmax, ymax = np.min(x_, 1), np.min(y_, 1), np.max(x_, 1), np.max(y_, 1)
+    xmin = xmin.reshape(-1, 1)
+    ymin = ymin.reshape(-1, 1)
+    xmax = xmax.reshape(-1, 1)
+    ymax = ymax.reshape(-1, 1)
+
+    return np.hstack((xmin, ymin, xmax, ymax, objects[:, 4].reshape(-1, 1)))
+
+
+class Rotate(object):
+    def __init__(self, angle):
+        self.angle = angle
+
+    def __call__(self, image, objects):
+        (h, w) = image.shape[:2]
+        cx, cy = w//2, h//2
+
+        m = cv2.getRotationMatrix2D((cx, cy), self.angle, 1.0)
+        cos, sin = np.abs(m[0, 0]), np.abs(m[0, 1])
+        nw = int(w*cos+h*sin)
+        nh = int(w*sin+h*cos)
+        m[0, 2] += nw/2-cx
+        m[1, 2] += nh/2-cy
+
+        image = cv2.warpAffine(image, m, (nw, nh))
+        objects = rotateobjects(m, objects)
+        return image, objects
+
+
+def test_rotate(image, objects_info, classname2label, label2classname):
+    objects = objectsinfo2list(objects_info, classname2label)
+    new_image, new_objects = Rotate(10)(image, objects)
+    new_objects_info = objectlist2info(new_objects, label2classname)
+
+    image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
+    new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
+
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'rotate')
 
 
 def objectsinfo2list(objects_info, classname2label):
@@ -152,7 +214,8 @@ def test_augmentation_methods():
 
         # test_horizontal_flip(image, info['objects'], classname2label, label2classname)
         # test_resize(image, info['objects'], classname2label, label2classname)
-        test_translate(image, info['objects'], classname2label, label2classname)
+        # test_translate(image, info['objects'], classname2label, label2classname)
+        test_rotate(image, info['objects'], classname2label, label2classname)
 
 
 if __name__ == '__main__':
