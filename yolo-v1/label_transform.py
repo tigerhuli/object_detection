@@ -25,7 +25,7 @@ def extract_label_from_xml(file_dir):
             ymin = node.xpath('./bndbox/ymin/text()')[0]
             xmax = node.xpath('./bndbox/xmax/text()')[0]
             ymax = node.xpath('./bndbox/ymax/text()')[0]
-            obj = (name, xmin, ymin, xmax, ymax)
+            obj = (xmin, ymin, xmax, ymax, name)
             objs.append(obj)
             obj_count += 1
             classes_set.add(name)
@@ -43,14 +43,16 @@ def generate_classes_label_map(classes, save=False):
     labels = range(len(classes))
 
     classname2label = {}
+    label2classname = {}
     for classname, label in zip(classes, labels):
         classname2label[classname] = label
+        label2classname[label] = classname
 
     if save:
         data = pd.DataFrame({'classes name': classes, 'label': labels})
         data.to_csv('data/class_label_map.csv', index=False)
 
-    return classname2label
+    return classname2label, label2classname
 
 
 def generate_targets(image2info, classname2label):
@@ -69,10 +71,10 @@ def generate_targets(image2info, classname2label):
         objects = info['objects']
 
         for object in objects:
-            xmin = float(object[1])
-            ymin = float(object[2])
-            xmax = float(object[3])
-            ymax = float(object[4])
+            xmin = float(object[0])
+            ymin = float(object[1])
+            xmax = float(object[2])
+            ymax = float(object[3])
 
             x = (xmin+xmax)/2
             y = (ymin+ymax)/2
@@ -89,7 +91,7 @@ def generate_targets(image2info, classname2label):
             cell[0:4] = [target_x, target_y, target_w, target_h]
             cell[5:9] = [target_x, target_y, target_w, target_h]
 
-            classname = str(object[0])
+            classname = str(object[4])
             cell[10+classname2label[classname]] = 1
 
             i = int(x/grid_width)
@@ -103,5 +105,5 @@ if __name__ == '__main__':
     print('start label transform')
     file_dir = 'data\VOCdevkit\VOC2012\Annotations'
     image2info, classes_set = extract_label_from_xml(file_dir)
-    classname2label = generate_classes_label_map(classes_set, True)
+    classname2label, _ = generate_classes_label_map(classes_set, True)
     generate_targets(image2info, classname2label)
