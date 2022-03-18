@@ -161,6 +161,13 @@ class Rotate(object):
 
         image = cv2.warpAffine(image, m, (nw, nh))
         objects = rotateobjects(m, objects)
+
+        image = cv2.resize(image, (w, h))
+        scale_x, scale_y = nw/w, nh/h
+        objects[:, [0, 2]] /= scale_x
+        objects[:, [1, 3]] /= scale_y
+
+        objects = clip_bboxes(image.shape, objects)
         return image, objects
 
 
@@ -173,6 +180,37 @@ def test_rotate(image, objects_info, classname2label, label2classname):
     new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
 
     display_effects(image_with_bboxes, new_image_with_bboxes, 'rotate')
+
+
+class HorizontalShear(object):
+    def __init__(self, factor):
+        # assert factor < 1 and factor > 0, 'scale need in (0, 1)'
+        self.factor = factor
+
+    def __call__(self, image, objects):
+        m = np.array([[1.0, self.factor, 0.0], [0.0, 1.0, 0.0]])
+        (h, w, _) = image.shape
+        nw = int(h*self.factor+w)
+        image = cv2.warpAffine(image, m, (nw, h))
+        image = cv2.resize(image, (w, h))
+
+        objects[:, [0, 2]] += objects[:, [1, 3]]*self.factor
+        scale_x = nw/w
+        objects[:, [0, 2]] /= scale_x
+
+        objects = clip_bboxes(image.shape, objects)
+        return image, objects
+
+
+def test_horizontalshear(image, objects_info, classname2label, label2classname):
+    objects = objectsinfo2list(objects_info, classname2label)
+    new_image, new_objects = HorizontalShear(2)(image, objects)
+    new_objects_info = objectlist2info(new_objects, label2classname)
+
+    image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
+    new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
+
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'shear')
 
 
 def objectsinfo2list(objects_info, classname2label):
@@ -215,7 +253,8 @@ def test_augmentation_methods():
         # test_horizontal_flip(image, info['objects'], classname2label, label2classname)
         # test_resize(image, info['objects'], classname2label, label2classname)
         # test_translate(image, info['objects'], classname2label, label2classname)
-        test_rotate(image, info['objects'], classname2label, label2classname)
+        # test_rotate(image, info['objects'], classname2label, label2classname)
+        test_horizontalshear(image, info['objects'], classname2label, label2classname)
 
 
 if __name__ == '__main__':
