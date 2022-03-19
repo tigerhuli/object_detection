@@ -8,20 +8,24 @@ import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
 
-def horizontal_flip(image, objects):
-    new_image = image[:, ::-1, :]
-    image_width = int(new_image.shape[1])
+class HorizontalFlip(object):
+    def __init__(self):
+        pass
 
-    new_objects = objects.copy()
-    new_objects[:, [0, 2]] = np.array([image_width, image_width])-new_objects[:, [0, 2]]
-    new_objects[:, [0, 2]] = new_objects[:, [2, 0]]
+    def __call__(self, image, objects):
+        new_image = image[:, ::-1, :]
+        image_width = int(new_image.shape[1])
 
-    return new_image, new_objects
+        new_objects = objects.copy()
+        new_objects[:, [0, 2]] = np.array([image_width, image_width])-new_objects[:, [0, 2]]
+        new_objects[:, [0, 2]] = new_objects[:, [2, 0]]
+
+        return new_image, new_objects
 
 
 def test_horizontal_flip(image, objects_info, classname2label, label2classname):
     objects = objectsinfo2list(objects_info, classname2label)
-    new_image, new_objects = horizontal_flip(image, objects)
+    new_image, new_objects = HorizontalFlip()(image, objects)
     new_objects_info = objectlist2info(new_objects, label2classname)
 
     image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
@@ -51,7 +55,7 @@ def test_clip_bboxes():
     print(f'objects: {objects}')
 
 
-class Resize(object):
+class Scale(object):
     def __init__(self, scale_x, scale_y):
         self.scale_x = scale_x
         self.scale_y = scale_y
@@ -71,15 +75,15 @@ class Resize(object):
         return new_image, new_objects
 
 
-def test_resize(image, objects_info, classname2label, label2classname):
+def test_scale(image, objects_info, classname2label, label2classname):
     objects = objectsinfo2list(objects_info, classname2label)
-    new_image, new_objects = Resize(0.5, 1)(image, objects)
+    new_image, new_objects = Scale(0.5, 1)(image, objects)
     new_objects_info = objectlist2info(new_objects, label2classname)
 
     image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
     new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
 
-    display_effects(image_with_bboxes, new_image_with_bboxes, 'resize')
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'scale')
 
 
 class Translate(object):
@@ -184,7 +188,6 @@ def test_rotate(image, objects_info, classname2label, label2classname):
 
 class HorizontalShear(object):
     def __init__(self, factor):
-        # assert factor < 1 and factor > 0, 'scale need in (0, 1)'
         self.factor = factor
 
     def __call__(self, image, objects):
@@ -211,6 +214,61 @@ def test_horizontalshear(image, objects_info, classname2label, label2classname):
     new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
 
     display_effects(image_with_bboxes, new_image_with_bboxes, 'shear')
+
+
+class Sequence(object):
+    def __init__(self, augs):
+        self.augs = augs
+
+    def __call__(self, image, objects):
+        for aug in self.augs:
+            image, objects = aug(image, objects)
+        return image, objects
+
+
+def test_sequence(image, objects_info, classname2label, label2classname):
+    objects = objectsinfo2list(objects_info, classname2label)
+    new_image, new_objects = Sequence([HorizontalFlip(), Rotate(-10), Scale(0.9, 0.9)])(image, objects)
+    new_objects_info = objectlist2info(new_objects, label2classname)
+
+    image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
+    new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
+
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'sequence')
+
+
+class ConstantResize(object):
+    def __init__(self, tw, th):
+        # input target width and height
+        self.tw = tw
+        self.th = th
+
+    def __call__(self, image, objects):
+        (h, w, _) = image.shape
+        scale = min(self.tw/w, self.th/h)
+        nw, nh = int(round(w*scale)), int(round(h*scale))
+        image = cv2.resize(image, (nw, nh))
+
+        canvas = np.zeros((self.th, self.tw, 3), dtype=np.uint8)
+        shift_x, shift_y = (self.tw-nw)//2, (self.th-nh)//2
+        canvas[shift_y:shift_y+nh, shift_x:shift_x+nw, :] = image
+        image = canvas
+
+        objects[:, :4] *= scale
+        objects[:, :4] += [shift_x, shift_y, shift_x, shift_y]
+
+        return image, objects
+
+
+def test_constantresize(image, objects_info, classname2label, label2classname):
+    objects = objectsinfo2list(objects_info, classname2label)
+    new_image, new_objects = ConstantResize(448, 448)(image, objects)
+    new_objects_info = objectlist2info(new_objects, label2classname)
+
+    image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
+    new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
+
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'constant resize')
 
 
 def objectsinfo2list(objects_info, classname2label):
@@ -254,7 +312,9 @@ def test_augmentation_methods():
         # test_resize(image, info['objects'], classname2label, label2classname)
         # test_translate(image, info['objects'], classname2label, label2classname)
         # test_rotate(image, info['objects'], classname2label, label2classname)
-        test_horizontalshear(image, info['objects'], classname2label, label2classname)
+        # test_horizontalshear(image, info['objects'], classname2label, label2classname)
+        # test_sequence(image, info['objects'], classname2label, label2classname)
+        test_constantresize(image, info['objects'], classname2label, label2classname)
 
 
 if __name__ == '__main__':
