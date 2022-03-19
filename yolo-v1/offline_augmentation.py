@@ -246,7 +246,7 @@ class ConstantResize(object):
     def __call__(self, image, objects):
         (h, w, _) = image.shape
         scale = min(self.tw/w, self.th/h)
-        nw, nh = int(round(w*scale)), int(round(h*scale))
+        nw, nh = round(w*scale), round(h*scale)
         image = cv2.resize(image, (nw, nh))
 
         canvas = np.zeros((self.th, self.tw, 3), dtype=np.uint8)
