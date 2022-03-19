@@ -89,7 +89,7 @@ def test_scale(image, objects_info, classname2label, label2classname):
 class Translate(object):
     def __init__(self, scale_x, scale_y):
         assert scale_x > -1 and scale_x < 1, 'shift_x should in (-1, 1)'
-        assert scale_y > -1 and scale_y < 1, 'shift_x should in (-1, 1)'
+        assert scale_y > -1 and scale_y < 1, 'shift_y should in (-1, 1)'
         self.scale_x = scale_x
         self.scale_y = scale_y
 
