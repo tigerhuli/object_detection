@@ -5,6 +5,7 @@ import os
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+import random
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
 
@@ -31,7 +32,30 @@ def test_horizontal_flip(image, objects_info, classname2label, label2classname):
     image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
     new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
 
-    display_effects(image_with_bboxes, new_image_with_bboxes, 'flip')
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'horizontal flip')
+
+
+class RandHorizontalFlip(object):
+    def __init__(self, p):
+        assert p > 0 and p < 1, 'p is in (0, 1)'
+        self.p = p
+
+    def __call__(self, image, objects):
+        if random.random() > self.p:
+            return image, objects
+
+        return HorizontalFlip()(image, objects)
+
+
+def test_rand_horizontal_flip(image, objects_info, classname2label, label2classname):
+    objects = objectsinfo2list(objects_info, classname2label)
+    new_image, new_objects = RandHorizontalFlip(0.5)(image, objects)
+    new_objects_info = objectlist2info(new_objects, label2classname)
+
+    image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
+    new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
+
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'rand horizontal flip')
 
 
 def clip_bboxes(image_shape, objects):
@@ -86,6 +110,31 @@ def test_scale(image, objects_info, classname2label, label2classname):
     display_effects(image_with_bboxes, new_image_with_bboxes, 'scale')
 
 
+class RandScale(object):
+    def __init__(self, range_x, range_y):
+        assert len(range_x) == 2, 'range_x is (start_scale_x, end_scale_x)'
+        assert len(range_y) == 2, 'range_y is (start_scale_y, end_scale_y)'
+        self.range_x = range_x
+        self.range_y = range_y
+
+    def __call__(self, image, objects):
+        scale_x = random.uniform(*self.range_x)
+        scale_y = random.uniform(*self.range_y)
+
+        return Scale(scale_x, scale_y)(image, objects)
+
+
+def test_randscale(image, objects_info, classname2label, label2classname):
+    objects = objectsinfo2list(objects_info, classname2label)
+    new_image, new_objects = RandScale((0.9, 1.1), (0.9, 1.1))(image, objects)
+    new_objects_info = objectlist2info(new_objects, label2classname)
+
+    image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
+    new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
+
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'rand scale')
+
+
 class Translate(object):
     def __init__(self, scale_x, scale_y):
         assert scale_x > -1 and scale_x < 1, 'shift_x should in (-1, 1)'
@@ -116,6 +165,31 @@ def test_translate(image, objects_info, classname2label, label2classname):
     new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
 
     display_effects(image_with_bboxes, new_image_with_bboxes, 'translate')
+
+
+class RandTranslate(object):
+    def __init__(self, range_x, range_y):
+        assert len(range_x) == 2, 'range_x is (start_scale_x, end_scale_x)'
+        assert len(range_y) == 2, 'range_y is (start_scale_y, end_scale_y)'
+        self.range_x = range_x
+        self.range_y = range_y
+
+    def __call__(self, image, objects):
+        scale_x = random.uniform(*self.range_x)
+        scale_y = random.uniform(*self.range_y)
+
+        return Translate(scale_x, scale_y)(image, objects)
+
+
+def test_rand_translate(image, objects_info, classname2label, label2classname):
+    objects = objectsinfo2list(objects_info, classname2label)
+    new_image, new_objects = RandTranslate((-0.1, 0.1), (-0.1, 0.1))(image, objects)
+    new_objects_info = objectlist2info(new_objects, label2classname)
+
+    image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
+    new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
+
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'rand translate')
 
 
 def rotateobjects(m, objects):
@@ -186,34 +260,82 @@ def test_rotate(image, objects_info, classname2label, label2classname):
     display_effects(image_with_bboxes, new_image_with_bboxes, 'rotate')
 
 
+class RandRotate(object):
+    def __init__(self, range_angle):
+        assert len(range_angle) == 2, 'range angle length equal 2'
+        self.range_angle = range_angle
+
+    def __call__(self, image, objects):
+        angle = random.uniform(*self.range_angle)
+        return Rotate(angle)(image, objects)
+
+
+def test_rand_rotate(image, objects_info, classname2label, label2classname):
+    objects = objectsinfo2list(objects_info, classname2label)
+    new_image, new_objects = RandRotate((-10, 10))(image, objects)
+    new_objects_info = objectlist2info(new_objects, label2classname)
+
+    image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
+    new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
+
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'rand rotate')
+
+
 class HorizontalShear(object):
     def __init__(self, factor):
         self.factor = factor
 
     def __call__(self, image, objects):
-        m = np.array([[1.0, self.factor, 0.0], [0.0, 1.0, 0.0]])
+        if self.factor < 0:
+            image, objects = HorizontalFlip()(image, objects)
+
+        abs_factor = abs(self.factor)
+        m = np.array([[1.0, abs_factor, 0.0], [0.0, 1.0, 0.0]])
         (h, w, _) = image.shape
-        nw = int(h*self.factor+w)
+        nw = int(h*abs_factor+w)
         image = cv2.warpAffine(image, m, (nw, h))
         image = cv2.resize(image, (w, h))
-
-        objects[:, [0, 2]] += objects[:, [1, 3]]*self.factor
+        objects[:, [0, 2]] += objects[:, [1, 3]]*abs_factor
         scale_x = nw/w
         objects[:, [0, 2]] /= scale_x
-
         objects = clip_bboxes(image.shape, objects)
+
+        if self.factor < 0:
+            image, objects = HorizontalFlip()(image, objects)
+
         return image, objects
 
 
 def test_horizontalshear(image, objects_info, classname2label, label2classname):
     objects = objectsinfo2list(objects_info, classname2label)
-    new_image, new_objects = HorizontalShear(2)(image, objects)
+    new_image, new_objects = HorizontalShear(-2)(image, objects)
     new_objects_info = objectlist2info(new_objects, label2classname)
 
     image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
     new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
 
     display_effects(image_with_bboxes, new_image_with_bboxes, 'shear')
+
+
+class RandHorizontalShear(object):
+    def __init__(self, range_factor):
+        assert len(range_factor) == 2, 'range angle length equal 2'
+        self.range_factor = range_factor
+
+    def __call__(self, image, objects):
+        factor = random.uniform(*self.range_factor)
+        return HorizontalShear(factor)(image, objects)
+
+
+def test_rand_horizontalshear(image, objects_info, classname2label, label2classname):
+    objects = objectsinfo2list(objects_info, classname2label)
+    new_image, new_objects = RandHorizontalShear((-0.1, 0.1))(image, objects)
+    new_objects_info = objectlist2info(new_objects, label2classname)
+
+    image_with_bboxes = detection_box.add_detection_boxes(image, objects_info)
+    new_image_with_bboxes = detection_box.add_detection_boxes(new_image, new_objects_info)
+
+    display_effects(image_with_bboxes, new_image_with_bboxes, 'rand horizontal shear')
 
 
 class Sequence(object):
@@ -309,12 +431,17 @@ def test_augmentation_methods():
         image = cv2.imread(image_path)
 
         # test_horizontal_flip(image, info['objects'], classname2label, label2classname)
-        # test_resize(image, info['objects'], classname2label, label2classname)
+        # test_rand_horizontal_flip(image, info['objects'], classname2label, label2classname)
+        # test_scale(image, info['objects'], classname2label, label2classname)
+        test_randscale(image, info['objects'], classname2label, label2classname)
         # test_translate(image, info['objects'], classname2label, label2classname)
+        test_rand_translate(image, info['objects'], classname2label, label2classname)
         # test_rotate(image, info['objects'], classname2label, label2classname)
+        test_rand_rotate(image, info['objects'], classname2label, label2classname)
         # test_horizontalshear(image, info['objects'], classname2label, label2classname)
+        test_rand_horizontalshear(image, info['objects'], classname2label, label2classname)
         # test_sequence(image, info['objects'], classname2label, label2classname)
-        test_constantresize(image, info['objects'], classname2label, label2classname)
+        # test_constantresize(image, info['objects'], classname2label, label2classname)
 
 
 if __name__ == '__main__':
